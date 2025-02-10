@@ -1,5 +1,7 @@
 package com.openpositioning.PositionMe;
 
+
+
 import android.graphics.Color;
 import android.util.Log;
 
@@ -23,37 +25,56 @@ import java.util.List;
  * @author Arun Gopalakrishnan
  */
 public class IndoorMapManager {
-    // To store the map instance
+    // Google Map 实例
     private GoogleMap gMap;
-    //Stores the overlay of the indoor maps
+    // 存储当前的 GroundOverlay
     private GroundOverlay groundOverlay;
-    // Stores the current Location of user
+    // 当前用户位置
     private LatLng currentLocation;
-    // Stores if indoor map overlay is currently set
-    private boolean isIndoorMapSet=false;
-    //Stores the current floor in building
+    // 是否显示了室内地图
+    private boolean isIndoorMapSet = false;
+    // 当前楼层
     private int currentFloor;
-    // Floor height of current building
+    // 当前建筑的楼层高度
     private float floorHeight;
-    //Images of the Nucleus Building and Library indoor floor maps
-    private final List<Integer> NUCLEUS_MAPS =Arrays.asList(
+
+    // Nucleus Building 的楼层图片
+    private final List<Integer> NUCLEUS_MAPS = Arrays.asList(
             R.drawable.nucleuslg, R.drawable.nucleusg, R.drawable.nucleus1,
-            R.drawable.nucleus2,R.drawable.nucleus3);
-    private final List<Integer> LIBRARY_MAPS =Arrays.asList(
+            R.drawable.nucleus2, R.drawable.nucleus3);
+
+    // Library Building 的楼层图片
+    private final List<Integer> LIBRARY_MAPS = Arrays.asList(
             R.drawable.libraryg, R.drawable.library1, R.drawable.library2,
             R.drawable.library3);
-    // South-west and north east Bounds of Nucleus building and library to set the Overlay
-    LatLngBounds NUCLEUS=new LatLngBounds(
+
+    // Fleeming Building 的楼层图片
+    private final List<Integer> fleeming_MAPS = Arrays.asList(
+            R.drawable.f0g, R.drawable.f1, R.drawable.f2,
+            R.drawable.f3);
+
+    // Nucleus 和 Library 的边界
+    private final LatLngBounds NUCLEUS = new LatLngBounds(
             BuildingPolygon.NUCLEUS_SW,
             BuildingPolygon.NUCLEUS_NE
     );
-    LatLngBounds LIBRARY=new LatLngBounds(
+    private final LatLngBounds LIBRARY = new LatLngBounds(
             BuildingPolygon.LIBRARY_SW,
             BuildingPolygon.LIBRARY_NE
     );
-    //Average Floor Heights of the Buildings
-    public static final float NUCLEUS_FLOOR_HEIGHT=4.2F;
-    public static final float LIBRARY_FLOOR_HEIGHT=3.6F;
+
+    // Fleeming Building 的边界
+    private final LatLngBounds fleeming = new LatLngBounds(
+            new LatLng(55.9221059, -3.1726003),  // ✅ **修正 SW（更靠左下）**
+            new LatLng(55.9228053, -3.1722553)   // ✅ **修正 NE（更靠右上）**
+    );
+
+
+
+    // 各建筑的楼层高度
+    public static final float NUCLEUS_FLOOR_HEIGHT = 4.2F;
+    public static final float LIBRARY_FLOOR_HEIGHT = 3.6F;
+    public static final float FLEEMING_FLOOR_HEIGHT = 3.6F;
 
     /**
      * Constructor to set the map instance
@@ -103,10 +124,10 @@ public class IndoorMapManager {
                 newFloor += 1;
             }
             // If within bounds and different from floor map currently being shown
-             if (newFloor>=0 && newFloor<NUCLEUS_MAPS.size() && newFloor!=this.currentFloor) {
-                 groundOverlay.setImage(BitmapDescriptorFactory.fromResource(NUCLEUS_MAPS.get(newFloor)));
-                 this.currentFloor=newFloor;
-             }
+            if (newFloor>=0 && newFloor<NUCLEUS_MAPS.size() && newFloor!=this.currentFloor) {
+                groundOverlay.setImage(BitmapDescriptorFactory.fromResource(NUCLEUS_MAPS.get(newFloor)));
+                this.currentFloor=newFloor;
+            }
         }
         else if (BuildingPolygon.inLibrary(currentLocation)){
             // If within bounds and different from floor map currently being shown
@@ -116,6 +137,13 @@ public class IndoorMapManager {
             }
         }
 
+        else if (BuildingPolygon.inFleeming(currentLocation)){
+            // If within bounds and different from floor map currently being shown
+            if (newFloor>=0 && newFloor<fleeming_MAPS.size() && newFloor!=this.currentFloor) {
+                groundOverlay.setImage(BitmapDescriptorFactory.fromResource(fleeming_MAPS.get(newFloor)));
+                this.currentFloor=newFloor;
+            }
+        }
     }
 
     /**
@@ -142,30 +170,41 @@ public class IndoorMapManager {
         try {
             // Setting overlay if in Nucleus and not already set
             if (BuildingPolygon.inNucleus(currentLocation) && !isIndoorMapSet) {
-                    groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
-                            .image(BitmapDescriptorFactory.fromResource(R.drawable.nucleusg))
-                            .positionFromBounds(NUCLEUS));
-                    isIndoorMapSet = true;
-                    // Nucleus has an LG floor so G floor is at index 1
-                    currentFloor=1;
-                    floorHeight=NUCLEUS_FLOOR_HEIGHT;
+                groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
+                        .image(BitmapDescriptorFactory.fromResource(R.drawable.nucleusg))
+                        .positionFromBounds(NUCLEUS));
+                isIndoorMapSet = true;
+                // Nucleus has an LG floor so G floor is at index 1
+                currentFloor=1;
+                floorHeight=NUCLEUS_FLOOR_HEIGHT;
             }
             // Setting overlay if in Library and not already set
             else if (BuildingPolygon.inLibrary(currentLocation) && !isIndoorMapSet) {
-                    groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
-                            .image(BitmapDescriptorFactory.fromResource(R.drawable.libraryg))
-                            .positionFromBounds(LIBRARY));
-                    isIndoorMapSet = true;
-                    currentFloor=0;
-                    floorHeight=LIBRARY_FLOOR_HEIGHT;
+                groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
+                        .image(BitmapDescriptorFactory.fromResource(R.drawable.libraryg))
+                        .positionFromBounds(LIBRARY));
+                isIndoorMapSet = true;
+                currentFloor=0;
+                floorHeight=LIBRARY_FLOOR_HEIGHT;
+            }
+
+            else if (BuildingPolygon.inFleeming(currentLocation) && !isIndoorMapSet) {
+                groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
+                        .image(BitmapDescriptorFactory.fromResource(R.drawable.f0g))
+                        .positionFromBounds(fleeming));// **默认边界**
+                isIndoorMapSet = true;
+                currentFloor = 0;
+                floorHeight = FLEEMING_FLOOR_HEIGHT;
             }
             // Removing overlay if user no longer in area with indoor maps available
             else if (!BuildingPolygon.inLibrary(currentLocation) &&
-                    !BuildingPolygon.inNucleus(currentLocation)&& isIndoorMapSet){
+                    !BuildingPolygon.inNucleus(currentLocation)&& isIndoorMapSet&&
+                    !BuildingPolygon.inFleeming(currentLocation)&& isIndoorMapSet){
                 groundOverlay.remove();
                 isIndoorMapSet = false;
                 currentFloor=0;
-            }   
+            }
+
         } catch (Exception ex) {
             Log.e("Error with overlay, Exception:", ex.toString());
         }
@@ -189,5 +228,26 @@ public class IndoorMapManager {
         points.add(BuildingPolygon.LIBRARY_POLYGON.get(0));
         gMap.addPolyline(new PolylineOptions().color(Color.GREEN)
                 .addAll(points));
+
+        // 直接使用 4 个点定义 Fleeming Building 的边界
+        List<LatLng> fleemingPolygon = Arrays.asList(
+                new LatLng(55.9221059, -3.1723130), // 西南 (Southwest)
+                new LatLng(55.9222226, -3.1719519), // 东南 (Southeast)
+                new LatLng(55.9228053, -3.1726003), // 东北 (Northeast)
+                new LatLng(55.9226930, -3.1729124), // 西北 (Northwest)
+                new LatLng(55.9221059, -3.1723130)  // **闭合边界**
+        );
+
+        // 在 Google Maps 上绘制绿色 Polyline
+        gMap.addPolyline(new PolylineOptions()
+                .color(Color.GREEN) // 绿色边界
+                .width(5)           // 线条宽度
+                .addAll(points));
+
     }
+
+
+
+
 }
+

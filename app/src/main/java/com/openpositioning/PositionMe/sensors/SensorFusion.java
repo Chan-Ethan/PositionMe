@@ -736,7 +736,7 @@ public class SensorFusion implements SensorEventListener, Observer {
     }
 
     /**
-     * Un-registers all device listeners and pauses data collection.stua
+     * Un-registers all device listeners and pauses data collection.
      *
      * Should be called from {@link MainActivity} when pausing the application.
      *
@@ -865,7 +865,7 @@ public class SensorFusion implements SensorEventListener, Observer {
      * Inherently threaded, runnables are created in {@link SensorFusion#startRecording()} and
      * destroyed in {@link SensorFusion#stopRecording()}.
      */
-    private class storeDataInTrajectory extends TimerTask {        
+    private class storeDataInTrajectory extends TimerTask {
         public void run() {
             // Store IMU and magnetometer data in Trajectory class
             trajectory.addImuData(Traj.Motion_Sample.newBuilder()

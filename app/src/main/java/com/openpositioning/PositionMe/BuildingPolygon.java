@@ -21,12 +21,15 @@ public class BuildingPolygon {
     public static final LatLng LIBRARY_NE=new LatLng(55.92306692576906, -3.174771893078224);
     public static final LatLng LIBRARY_SW=new LatLng(55.92281045664704, -3.175184089079065);
     // Boundary coordinates of the Nucleus building (clockwise)
-
+    // Library Building 的东北和西南角坐标
+    public static final LatLng Fleeming_NE=new LatLng(55.9220823, -3.1726908);
+    public static final LatLng Fleeming_SW=new LatLng(55.9225463, -3.1732186);
     public static final List<LatLng> NUCLEUS_POLYGON = new ArrayList<LatLng>() {{
         add(BuildingPolygon.NUCLEUS_NE);
         add(new LatLng(BuildingPolygon.NUCLEUS_SW.latitude, BuildingPolygon.NUCLEUS_NE.longitude)); // South-East
         add(BuildingPolygon.NUCLEUS_SW);
         add(new LatLng(BuildingPolygon.NUCLEUS_NE.latitude, BuildingPolygon.NUCLEUS_SW.longitude)); // North-West
+
     }};
     //Boundary coordinates of the Library building (clockwise)
     public static final List<LatLng> LIBRARY_POLYGON = new ArrayList<LatLng>() {{
@@ -34,6 +37,13 @@ public class BuildingPolygon {
         add(new LatLng(BuildingPolygon.LIBRARY_SW.latitude,BuildingPolygon.LIBRARY_NE.longitude));//(South-East)
         add(BuildingPolygon.LIBRARY_SW);
         add(new LatLng(BuildingPolygon.LIBRARY_NE.latitude,BuildingPolygon.LIBRARY_SW.longitude));//(North-West)
+    }};
+
+    public static final List<LatLng> Fleeming_POLYGON = new ArrayList<LatLng>() {{
+        add(BuildingPolygon.Fleeming_NE);
+        add(new LatLng(BuildingPolygon.Fleeming_SW.latitude,BuildingPolygon.Fleeming_NE.longitude));//(South-East)
+        add(BuildingPolygon.Fleeming_SW);
+        add(new LatLng(BuildingPolygon.Fleeming_NE.latitude,BuildingPolygon.Fleeming_SW.longitude));//(North-West)
     }};
 
     /**
@@ -52,6 +62,10 @@ public class BuildingPolygon {
      */
     public static boolean inLibrary(LatLng point){
         return (pointInPolygon(point,LIBRARY_POLYGON));
+    }
+
+    public static boolean inFleeming(LatLng point){
+        return (pointInPolygon(point,Fleeming_POLYGON));
     }
 
     /**

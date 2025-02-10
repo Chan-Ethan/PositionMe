@@ -88,6 +88,7 @@
                 app:icon="@drawable/ic_baseline_folder_24"
                 app:iconGravity="textTop"
                 app:iconSize="50dp" />
+
         </LinearLayout>
 
     </androidx.constraintlayout.widget.ConstraintLayout>

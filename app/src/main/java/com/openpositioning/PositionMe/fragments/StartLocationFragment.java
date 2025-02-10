@@ -46,6 +46,8 @@ public class StartLocationFragment extends Fragment {
     private float[] startPosition = new float[2];
     //Zoom of google maps
     private NucleusBuildingManager NucleusBuildingManager;
+
+
     private float zoom = 19f;
     private int FloorNK;
 
@@ -121,6 +123,7 @@ public class StartLocationFragment extends Fragment {
                     // Create NuclearBuildingManager instance
                     NucleusBuildingManager = new NucleusBuildingManager(mMap);
                     NucleusBuildingManager.getIndoorMapManager().hideMap();
+
                 }
 
                 // Add a marker in current GPS location and move the camera
