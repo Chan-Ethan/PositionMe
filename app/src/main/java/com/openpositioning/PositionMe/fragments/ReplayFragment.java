@@ -31,11 +31,16 @@ import com.google.android.gms.maps.model.Polyline;
 import com.google.android.gms.maps.model.PolylineOptions;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
+import com.google.gson.JsonSyntaxException;
+import com.google.gson.Gson;
+import com.google.protobuf.ByteString;
 
 public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
@@ -50,15 +55,21 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private Polyline polyline;
     private Marker positionMarker;
     private SeekBar seekBar;
-    private List<LatLng> pdrCoordinates = new ArrayList<>();
-    private List<LatLng> gnssCoordinates = new ArrayList<>();
-    private long totalDuration = 0;
+    // private List<LatLng> pdrCoordinates = new ArrayList<>();
+    // private List<LatLng> gnssCoordinates = new ArrayList<>();
+    private int totalDuration = 0;
+    private int MaxProgress;
     private TextView tvProgressTime; // 新增时间显示控件
+
+    private float pdrX, pdrY;   // current progress PDR data
+    private float gnssLati, gnssLong; // current progress GNSS data
+    private float elevation;    // current progress elevation
+    private int pdrIndex = 0;       // current progress PDR index
+    private int gnssIndex;      // current progress GNSS index
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        readTrajectoryData(); // 加载轨迹数据
         refreshDataHandler = new Handler();
     }
 
@@ -70,7 +81,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
         // 初始化地图
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager()
-                .findFragmentById(R.id.map_container);
+                .findFragmentById(R.id.replayMap);
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
@@ -170,46 +181,109 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         return view;
     }
 
+    @Override
+    public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
+        super.onViewCreated(view, savedInstanceState);
+        readTrajectoryData();
+    }
+
     // 地图初始化
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
+        Log.d("ReplayFragment", "onMapReady");
         gMap = googleMap;
+        gMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
+        gMap.getUiSettings().setCompassEnabled(true);
+        gMap.getUiSettings().setTiltGesturesEnabled(true);
+        gMap.getUiSettings().setRotateGesturesEnabled(true);
+        gMap.getUiSettings().setScrollGesturesEnabled(true);
         gMap.getUiSettings().setZoomControlsEnabled(true);
 
-        if (!pdrCoordinates.isEmpty()) {
-            LatLng initialPos = pdrCoordinates.get(0);
-            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(initialPos, 19f));
-            positionMarker = gMap.addMarker(new MarkerOptions().position(initialPos).title("Position"));
-            PolylineOptions options = new PolylineOptions().color(Color.BLUE).width(8f);
-            polyline = gMap.addPolyline(options);
+        PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f);
+        polyline = gMap.addPolyline(options);
+        Log.d("ReplayFragment", "polyline added");
+
+        if ((pdrX != 0) || (pdrY != 0)) {
+            LatLng initialPdrPos = new LatLng(pdrX, pdrY);
+            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(initialPdrPos, 19f));
+            // positionMarker = gMap.addMarker(new MarkerOptions().position(initialPos).title("Position"));
+        }
+        else {
+            Log.e("ReplayFragment", "No PDR data to replay");
+            Toast.makeText(getContext(), "No PDR data to replay", Toast.LENGTH_LONG).show();
         }
     }
-
-    // 读取轨迹数据（保持原有逻辑）
+    
     private void readTrajectoryData() {
-        File file = new File(requireContext().getFilesDir(), "received_trajectory.txt");
-        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
-            if (file.exists()) {
-                StringBuilder content = new StringBuilder();
-                String line;
-                while ((line = br.readLine()) != null) content.append(line);
-                receTraj = Traj.Trajectory.parseFrom(content.toString().getBytes());
-                PdrNum = receTraj.getPdrDataCount();
-                GnssNum = receTraj.getGnssDataCount();
+        try {
+            // Get file path and log details
+            File file = new File(requireContext().getFilesDir(), "received_trajectory.traj");
+            // Log.d("ReplayFragment", "File path: " + file.getAbsolutePath());
+            // Log.d("ReplayFragment", "File exists: " + file.exists());
+            // byte[] Bytes = readFileToByteArray(file);
+            FileInputStream fileStream = new FileInputStream(file);
+            
+            // receTraj = Traj.Trajectory.parseFrom(Bytes);
 
+            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
-                for (int i = 0; i < PdrNum; i++) {
-                    Traj.Pdr_Sample pdr = receTraj.getPdrData(i);
-                    pdrCoordinates.add(new LatLng(pdr.getX(), pdr.getY()));
-                }
-
-                if (PdrNum > 0) {
-                    totalDuration = receTraj.getPdrData(PdrNum - 1).getRelativeTimestamp();
-                    seekBar.setMax((int) totalDuration);
-                }
+            // Read the zipped data and write it to the byte array output stream
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = fileStream.read(buffer)) != -1) {
+                byteArrayOutputStream.write(buffer, 0, bytesRead);
             }
-        } catch (IOException e) {
-            Log.e("ReplayFragment", "Error reading trajectory", e);
+
+            // Convert the byte array to a protobuf object
+            byte[] byteArray = byteArrayOutputStream.toByteArray();
+            System.out.println("ReplayFragment File load, size is: " + byteArray.length + " bytes");
+            receTraj = Traj.Trajectory.parseFrom(byteArray);
+
+            // Extract trajectory details
+            PdrNum = receTraj.getPdrDataCount();
+            GnssNum = receTraj.getGnssDataCount();
+            Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + GnssNum);
+            Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + PdrNum);
+            Log.d("ReplayFragment", "Start Timestamp: " + receTraj.getStartTimestamp());
+
+            // if no PDR record, stop
+            if (PdrNum == 0) {
+                Log.w("ReplayFragment", "No PDR data to replay");
+                return;
+            }
+
+            // Calculate total duration
+            if (receTraj.getPdrData(PdrNum-1).getRelativeTimestamp() > Integer.MAX_VALUE) {
+                MaxProgress = Integer.MAX_VALUE;
+                Log.w("ReplayFragment", "Trajectory too long, playback limited to 2^31-1 milliseconds");
+            }
+            else {
+                MaxProgress = (int)receTraj.getPdrData(PdrNum-1).getRelativeTimestamp();
+                Log.d("ReplayFragment", "MaxProgress = "+MaxProgress);
+            }
+            seekBar.setMax(MaxProgress);
+            // totalDuration = MaxProgress - receTraj.getStartTimestamp();
+
+            // initial current progress data
+            pdrX = receTraj.getPdrData(0).getX();
+            pdrY = receTraj.getPdrData(0).getY();
+            Log.d("ReplayFragment", "pdrX = "+pdrX);
+            Log.d("ReplayFragment", "pdrY = "+pdrY);
+            if (GnssNum > 0) {
+                gnssLati = receTraj.getGnssData(0).getLatitude();
+                gnssLong = receTraj.getGnssData(0).getLongitude();
+            }
+            else {
+                gnssLati = 0;
+                gnssLong = 0;
+            }
+
+            // Calculate elevation
+
+
+        } catch (IOException | JsonSyntaxException e) {
+            Log.e("ReplayFragment", "Failed to read trajectory", e);
+            Toast.makeText(getContext(), "Error: Invalid trajectory file", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -218,8 +292,9 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         refreshDataHandler.postDelayed(new Runnable() {
             @Override
             public void run() {
-                if (isPlaying && progress < totalDuration) {
-                    progress += 200;
+                if (isPlaying && progress < MaxProgress) {
+                    progress = (int)Math.min(progress+200, MaxProgress);
+                    Log.d("ReplayFragment", "current Progress = "+progress);
                     seekBar.setProgress(progress);
                     updateUIandPosition(progress);
                     updateTimeDisplay(progress); // 新增时间更新
@@ -236,13 +311,16 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         Toast.makeText(getContext(), "Playback paused", Toast.LENGTH_SHORT).show();
     }
 
+    static List<LatLng> points = new ArrayList<>();
     // 更新地图和UI
     private void updateUIandPosition(int progress) {
-        if (pdrCoordinates.isEmpty() || polyline == null) return;
-        int index = findClosestPdrIndex(progress);
-        LatLng currentPos = pdrCoordinates.get(index);
+        pdrIndex = findClosestPdrIndex(progress, pdrIndex);
+        Log.d("ReplayFragment", "X = "+receTraj.getPdrData(pdrIndex).getX());
+        Log.d("ReplayFragment", "Y = "+receTraj.getPdrData(pdrIndex).getY());
+        LatLng currentPos = new LatLng(receTraj.getPdrData(pdrIndex).getX(),
+                receTraj.getPdrData(pdrIndex).getY());
 
-        List<LatLng> points = new ArrayList<>(pdrCoordinates.subList(0, index + 1));
+        points.add(currentPos);
         polyline.setPoints(points);
 
         if (positionMarker != null) {
@@ -259,18 +337,17 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         tvProgressTime.setText(time);
     }
 
-    // 二分查找最近PDR索引（保持原有逻辑）
-    private int findClosestPdrIndex(long timestamp) {
-        int low = 0, high = PdrNum - 1;
-        while (low < high) {
-            int mid = (low + high) / 2;
-            long midTime = receTraj.getPdrData(mid).getRelativeTimestamp();
-            if (midTime < timestamp) {
-                low = mid + 1;
-            } else {
-                high = mid;
-            }
+    // find closest PDR index
+    private int findClosestPdrIndex(int timestamp, int pdrIndex) {
+        // make sure index is within bounds
+        int index = Math.min(Math.max(pdrIndex, 0), PdrNum - 1);
+
+        while ((index < PdrNum - 1) &&
+                (receTraj.getPdrData(index + 1).getRelativeTimestamp() <= timestamp)) {
+            index++;
         }
-        return low;
+
+        Log.d("ReplayFragment", "Closest PDR index: " + index);
+        return index;
     }
 }
