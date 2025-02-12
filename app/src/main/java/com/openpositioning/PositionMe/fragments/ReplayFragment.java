@@ -1,6 +1,8 @@
 package com.openpositioning.PositionMe.fragments;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.openpositioning.PositionMe.Traj;
 import com.openpositioning.PositionMe.R;
+import com.openpositioning.PositionMe.IndoorMapManager;
 
 import android.graphics.Color;
 import android.os.Bundle;
@@ -41,6 +43,8 @@ import java.util.List;
 import com.google.gson.JsonSyntaxException;
 import com.google.gson.Gson;
 import com.google.protobuf.ByteString;
+import com.openpositioning.PositionMe.UtilFunctions;
+import com.openpositioning.PositionMe.sensors.SensorTypes;
 
 public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
@@ -53,6 +57,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private int GnssNum;
     private GoogleMap gMap;
     private Polyline polyline;
+    public IndoorMapManager indoorMapManager;
     private Marker positionMarker;
     private SeekBar seekBar;
     // private List<LatLng> pdrCoordinates = new ArrayList<>();
@@ -62,10 +67,17 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private TextView tvProgressTime; // 新增时间显示控件
 
     private float pdrX, pdrY;   // current progress PDR data
+    private float distance;
+    private float orientation;
+    private float previousPdrX = 0f;
+    private float previousPdrY = 0f;
+    private LatLng currentLocation; // current progress location
+    private LatLng nextLocation;    // next progress location
     private float gnssLati, gnssLong; // current progress GNSS data
     private float elevation;    // current progress elevation
     private int pdrIndex = 0;       // current progress PDR index
     private int gnssIndex;      // current progress GNSS index
+    private boolean GnssOn = false;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -150,8 +162,10 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         // GNSS 开关
         gnssSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
+                GnssOn = true;
                 Toast.makeText(getContext(), "GNSS Enabled", Toast.LENGTH_SHORT).show();
             } else {
+                GnssOn = false;
                 Toast.makeText(getContext(), "GNSS Disabled", Toast.LENGTH_SHORT).show();
             }
         });
@@ -192,6 +206,8 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     public void onMapReady(@NonNull GoogleMap googleMap) {
         Log.d("ReplayFragment", "onMapReady");
         gMap = googleMap;
+        indoorMapManager = new IndoorMapManager(googleMap);
+
         gMap.setMapType(GoogleMap.MAP_TYPE_HYBRID);
         gMap.getUiSettings().setCompassEnabled(true);
         gMap.getUiSettings().setTiltGesturesEnabled(true);
@@ -199,14 +215,19 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         gMap.getUiSettings().setScrollGesturesEnabled(true);
         gMap.getUiSettings().setZoomControlsEnabled(true);
 
-        PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f);
-        polyline = gMap.addPolyline(options);
-        Log.d("ReplayFragment", "polyline added");
-
         if ((pdrX != 0) || (pdrY != 0)) {
-            LatLng initialPdrPos = new LatLng(pdrX, pdrY);
-            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(initialPdrPos, 19f));
+            LatLng start = new LatLng(gnssLati, gnssLong);
+            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(start, 19f));
             // positionMarker = gMap.addMarker(new MarkerOptions().position(initialPos).title("Position"));
+            positionMarker=gMap.addMarker(new MarkerOptions().position(start).title("Current Position")
+                    .flat(true)
+                    .icon(BitmapDescriptorFactory.fromBitmap(
+                            UtilFunctions.getBitmapFromVector(getContext(),R.drawable.ic_baseline_navigation_24))));
+            PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f).add(start);
+            polyline = gMap.addPolyline(options);
+            indoorMapManager.setCurrentLocation(start);
+            //Showing an indication of available indoor maps using PolyLines
+            indoorMapManager.setIndicationOfIndoorMap();
         }
         else {
             Log.e("ReplayFragment", "No PDR data to replay");
@@ -276,6 +297,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             else {
                 gnssLati = 0;
                 gnssLong = 0;
+                Log.e("ReplayFragment", "No GNSS data!");
             }
 
             // Calculate elevation
@@ -314,18 +336,68 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     static List<LatLng> points = new ArrayList<>();
     // 更新地图和UI
     private void updateUIandPosition(int progress) {
+        // Get new position
         pdrIndex = findClosestPdrIndex(progress, pdrIndex);
-        Log.d("ReplayFragment", "X = "+receTraj.getPdrData(pdrIndex).getX());
-        Log.d("ReplayFragment", "Y = "+receTraj.getPdrData(pdrIndex).getY());
-        LatLng currentPos = new LatLng(receTraj.getPdrData(pdrIndex).getX(),
-                receTraj.getPdrData(pdrIndex).getY());
+        pdrX = receTraj.getPdrData(pdrIndex).getX();
+        pdrY = receTraj.getPdrData(pdrIndex).getY();
+        Log.d("ReplayFragment", "X = " + pdrX);
+        Log.d("ReplayFragment", "Y = " + pdrY);
 
-        points.add(currentPos);
-        polyline.setPoints(points);
+        // Calculate distance travelled
+        // distance += Math.sqrt(Math.pow(pdrX - previousPdrX, 2) + Math.pow(pdrY - previousPdrY, 2));
+        // distanceTravelled.setText(getString(R.string.meter, String.format("%.2f", distance)));
 
+        // Net pdr movement
+        float[] pdrMoved={pdrX-previousPdrX,pdrY-previousPdrY};
+        // if PDR has changed plot new line to indicate user movement
+        if (pdrMoved[0]!=0 ||pdrMoved[1]!=0) {
+            plotLines(pdrMoved);
+        }
+        // If not initialized, initialize
+        if (indoorMapManager == null) {
+            indoorMapManager =new IndoorMapManager(gMap);
+        }
+        //Show GNSS marker and error if user enables it
+        if (GnssOn){
+            // float[] location = sensorFusion.getSensorValueMap().get(SensorTypes.GNSSLATLONG);
+            // LatLng gnssLocation = new LatLng(location[0],location[1]);
+            // gnssError.setVisibility(View.VISIBLE);
+            // gnssError.setText(String.format(getString(R.string.gnss_error)+"%.2fm",
+            //         UtilFunctions.distanceBetweenPoints(currentLocation,gnssLocation)));
+            // gnssMarker.setPosition(gnssLocation);
+        }
+        //  Updates current location of user to show the indoor floor map (if applicable)
+        indoorMapManager.setCurrentLocation(currentLocation);
+        // float elevationVal = sensorFusion.getElevation();
+        // Display buttons to allow user to change floors if indoor map is visible
+        if(indoorMapManager.getIsIndoorMapSet()){
+            // setFloorButtonVisibility(View.VISIBLE);
+            // Auto-floor logic
+            // if(autoFloor.isChecked()){
+            //     indoorMapManager.setCurrentFloor((int)(elevationVal/indoorMapManager.getFloorHeight())
+            //             ,true);
+            // }
+        }else{
+            // Hide the buttons and switch used to change floor if indoor map is not visible
+            // setFloorButtonVisibility(View.GONE);
+        }
+        // Store previous PDR values for next call
+        previousPdrX = pdrX;
+        previousPdrY = pdrY;
+        // Display elevation
+        // elevation.setText(getString(R.string.elevation, String.format("%.1f", elevationVal)));
+        //Rotate compass Marker according to direction of movement
+        // if (orientationMarker!=null) {
+        //     orientationMarker.setRotation((float) Math.toDegrees(sensorFusion.passOrientation()));
+        // }
+
+
+        // points.add(currentPos);
+        // polyline.setPoints(points);
+//
         if (positionMarker != null) {
-            positionMarker.setPosition(currentPos);
-            gMap.moveCamera(CameraUpdateFactory.newLatLng(currentPos));
+            positionMarker.setPosition(currentLocation);
+            gMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
         }
     }
 
@@ -349,5 +421,36 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
         Log.d("ReplayFragment", "Closest PDR index: " + index);
         return index;
+    }
+
+    /**
+     * Plots the users location based on movement in Real-time
+     * @param pdrMoved Contains the change in PDR in X and Y directions
+     */
+    private void plotLines(float[] pdrMoved){
+        if (currentLocation!=null){
+            // Calculate new position based on net PDR movement
+            nextLocation=UtilFunctions.calculateNewPos(currentLocation,pdrMoved);
+
+            // Adds new location to polyline to plot the PDR path of user
+            List<LatLng> pointsMoved = polyline.getPoints();
+            pointsMoved.add(nextLocation);
+            polyline.setPoints(pointsMoved);
+
+            // calculate orientation
+            orientation =
+
+            // Change current location to new location and zoom there
+            positionMarker.setPosition(nextLocation);
+            positionMarker.setRotation();
+            gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(nextLocation, (float) 19f));
+
+            currentLocation=nextLocation;
+        }
+        else{
+            //Initialise the starting location
+            currentLocation=new LatLng(gnssLati,gnssLong);
+            nextLocation=currentLocation;
+        }
     }
 }

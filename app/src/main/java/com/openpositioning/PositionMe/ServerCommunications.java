@@ -349,9 +349,16 @@ public class ServerCommunications implements Observable {
                         fileOutputStream.write(byteArray); // byteArray is the byte array of the protobuf object
                         System.err.println("Received trajectory stored in: " + file.getAbsolutePath());
                         System.out.println("ReplayFragment PDR number: " + receivedTrajectory.getPdrDataCount());
+                        System.out.println("ReplayFragment GNSS number: " + receivedTrajectory.getGnssDataCount());
                     } catch (IOException ee) {
                         System.err.println("Trajectory download failed: " + ee.getMessage());
-                    }                    
+                    }
+
+                    // Close all streams and entries to release resources
+                    zipInputStream.closeEntry();
+                    byteArrayOutputStream.close();
+                    zipInputStream.close();
+                    inputStream.close();
 
                     // File file = new File(storagePath, "received_trajectory.txt");
                     // try (FileWriter fileWriter = new FileWriter(file)) {
