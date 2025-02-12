@@ -304,8 +304,10 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Extract trajectory details
             pdrNum = receTraj.getPdrDataCount();
             gnssNum = receTraj.getGnssDataCount();
+            int PressureNum = receTraj.getPressureDataCount();
             Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + gnssNum);
             Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + pdrNum);
+            Log.d("ReplayFragment", "Trajectory parsed successfully. Pressure points: " + PressureNum);
             Log.d("ReplayFragment", "Start Timestamp: " + receTraj.getStartTimestamp());
 
             // if no PDR record, stop
@@ -328,8 +330,8 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // initial current progress data
             pdrX = receTraj.getPdrData(0).getX();
             pdrY = receTraj.getPdrData(0).getY();
-            Log.d("ReplayFragment", "pdrX = "+pdrX);
-            Log.d("ReplayFragment", "pdrY = "+pdrY);
+            // Log.d("ReplayFragment", "pdrX = "+pdrX);
+            // Log.d("ReplayFragment", "pdrY = "+pdrY);
             if (gnssNum > 0) {
                 gnssLati = receTraj.getGnssData(0).getLatitude();
                 gnssLong = receTraj.getGnssData(0).getLongitude();
@@ -380,8 +382,8 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         pdrIndex = findClosestPdrIndex(progress, pdrIndex);
         pdrX = receTraj.getPdrData(pdrIndex).getX();
         pdrY = receTraj.getPdrData(pdrIndex).getY();
-        Log.d("ReplayFragment", "X = " + pdrX);
-        Log.d("ReplayFragment", "Y = " + pdrY);
+        // Log.d("ReplayFragment", "X = " + pdrX);
+        // Log.d("ReplayFragment", "Y = " + pdrY);
 
         // Net pdr movement
         float[] pdrMoved={pdrX-previousPdrX,pdrY-previousPdrY};
@@ -454,7 +456,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             index++;
         }
 
-        Log.d("ReplayFragment", "Closest PDR index: " + index);
+        // Log.d("ReplayFragment", "Closest PDR index: " + index);
         return index;
     }
 
@@ -467,7 +469,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             index++;
         }
 
-        Log.d("ReplayFragment", "Closest Gnss index: " + index);
+        // Log.d("ReplayFragment", "Closest Gnss index: " + index);
         return index;
     }
 
