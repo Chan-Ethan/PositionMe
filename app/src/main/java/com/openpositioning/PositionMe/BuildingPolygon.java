@@ -4,6 +4,7 @@ package com.openpositioning.PositionMe;
 import com.google.android.gms.maps.model.LatLng;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -22,8 +23,30 @@ public class BuildingPolygon {
     public static final LatLng LIBRARY_SW=new LatLng(55.92281045664704, -3.175184089079065);
     // Boundary coordinates of the Nucleus building (clockwise)
     // Library Building 的东北和西南角坐标
-    public static final LatLng Fleeming_NE=new LatLng(55.9220823, -3.1726908);
-    public static final LatLng Fleeming_SW=new LatLng(55.9225463, -3.1732186);
+
+
+    // Fleeming Building 的中心点
+    public static final LatLng Fleeming_CENTER = new LatLng(55.9224567, -3.1724444);
+
+    // 定义 Fleeming Building 的 Polygon（按照 Google 地图上手动调整）
+    public static final List<LatLng> Fleeming_POLYGON = Arrays.asList(
+            new LatLng(55.9221059, -3.1723130), // 西南 (Southwest)
+            new LatLng(55.9222226, -3.1719519), // 东南 (Southeast)
+            new LatLng(55.9228053, -3.1726003), // 东北 (Northeast)
+            new LatLng(55.9226930, -3.1729124), // 西北 (Northwest)
+            new LatLng(55.9221059, -3.1723130)  // **闭合边界**
+    );
+
+    public static final LatLng Hudson_CENTER = new LatLng(55.9225085, -3.1713467);
+
+    // 定义 Fleeming Building 的 Polygon（按照 Google 地图上手动调整）
+    public static final List<LatLng> Hudson_POLYGON = Arrays.asList(
+            new LatLng(55.9223633, -3.1715301), // 西南 (Southwest)
+            new LatLng(55.9225434, -3.1710165), // 东南 (Southeast)
+            new LatLng(55.9226656, -3.1711522), // 东北 (Northeast)
+            new LatLng(55.9224837, -3.1716374), // 西北 (Northwest)
+            new LatLng(55.9221059, -3.1723130)  // **闭合边界**
+    );
     public static final List<LatLng> NUCLEUS_POLYGON = new ArrayList<LatLng>() {{
         add(BuildingPolygon.NUCLEUS_NE);
         add(new LatLng(BuildingPolygon.NUCLEUS_SW.latitude, BuildingPolygon.NUCLEUS_NE.longitude)); // South-East
@@ -39,12 +62,8 @@ public class BuildingPolygon {
         add(new LatLng(BuildingPolygon.LIBRARY_NE.latitude,BuildingPolygon.LIBRARY_SW.longitude));//(North-West)
     }};
 
-    public static final List<LatLng> Fleeming_POLYGON = new ArrayList<LatLng>() {{
-        add(BuildingPolygon.Fleeming_NE);
-        add(new LatLng(BuildingPolygon.Fleeming_SW.latitude,BuildingPolygon.Fleeming_NE.longitude));//(South-East)
-        add(BuildingPolygon.Fleeming_SW);
-        add(new LatLng(BuildingPolygon.Fleeming_NE.latitude,BuildingPolygon.Fleeming_SW.longitude));//(North-West)
-    }};
+
+
 
     /**
      * Function to check if a point is in the Nucleus Building
@@ -65,7 +84,11 @@ public class BuildingPolygon {
     }
 
     public static boolean inFleeming(LatLng point){
-        return (pointInPolygon(point,Fleeming_POLYGON));
+        return (pointInPolygon(point, Fleeming_POLYGON)); // 确保 polygon 数据正确
+    }
+
+    public static boolean inHudson(LatLng point){
+        return (pointInPolygon(point, Hudson_POLYGON)); // 确保 polygon 数据正确
     }
 
     /**

@@ -53,6 +53,9 @@ public class IndoorMapManager {
             R.drawable.f0g, R.drawable.f1, R.drawable.f2,
             R.drawable.f3);
 
+    private final List<Integer> Hudson_MAPS = Arrays.asList(
+            R.drawable.h0g, R.drawable.h1, R.drawable.h2);
+
     // Nucleus 和 Library 的边界
     private final LatLngBounds NUCLEUS = new LatLngBounds(
             BuildingPolygon.NUCLEUS_SW,
@@ -64,10 +67,11 @@ public class IndoorMapManager {
     );
 
     // Fleeming Building 的边界
-    private final LatLngBounds fleeming = new LatLngBounds(
-            new LatLng(55.9221059, -3.1726003),  // ✅ **修正 SW（更靠左下）**
-            new LatLng(55.9228053, -3.1722553)   // ✅ **修正 NE（更靠右上）**
+    private final LatLngBounds FLEEMING = new LatLngBounds(
+            new LatLng(55.9220823, -3.1732186), // ✅ 西南角 (SW)
+            new LatLng(55.9225463, -3.1726908)  // ✅ 东北角 (NE)
     );
+
 
 
 
@@ -75,6 +79,8 @@ public class IndoorMapManager {
     public static final float NUCLEUS_FLOOR_HEIGHT = 4.2F;
     public static final float LIBRARY_FLOOR_HEIGHT = 3.6F;
     public static final float FLEEMING_FLOOR_HEIGHT = 3.6F;
+
+    public static final float HUDSON_FLOOR_HEIGHT = 3.6F;
 
     /**
      * Constructor to set the map instance
@@ -144,6 +150,14 @@ public class IndoorMapManager {
                 this.currentFloor=newFloor;
             }
         }
+
+        else if (BuildingPolygon.inFleeming(currentLocation)){
+            // If within bounds and different from floor map currently being shown
+            if (newFloor>=0 && newFloor<Hudson_MAPS.size() && newFloor!=this.currentFloor) {
+                groundOverlay.setImage(BitmapDescriptorFactory.fromResource(Hudson_MAPS.get(newFloor)));
+                this.currentFloor=newFloor;
+            }
+        }
     }
 
     /**
@@ -166,49 +180,58 @@ public class IndoorMapManager {
      * Removes the overlay if user no longer in building
      */
     private void setBuildingOverlay() {
-        // Try catch block to prevent fatal crashes
         try {
-            // Setting overlay if in Nucleus and not already set
             if (BuildingPolygon.inNucleus(currentLocation) && !isIndoorMapSet) {
                 groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(BitmapDescriptorFactory.fromResource(R.drawable.nucleusg))
                         .positionFromBounds(NUCLEUS));
                 isIndoorMapSet = true;
-                // Nucleus has an LG floor so G floor is at index 1
-                currentFloor=1;
-                floorHeight=NUCLEUS_FLOOR_HEIGHT;
+                currentFloor = 1;
+                floorHeight = NUCLEUS_FLOOR_HEIGHT;
             }
-            // Setting overlay if in Library and not already set
             else if (BuildingPolygon.inLibrary(currentLocation) && !isIndoorMapSet) {
                 groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(BitmapDescriptorFactory.fromResource(R.drawable.libraryg))
                         .positionFromBounds(LIBRARY));
                 isIndoorMapSet = true;
-                currentFloor=0;
-                floorHeight=LIBRARY_FLOOR_HEIGHT;
+                currentFloor = 0;
+                floorHeight = LIBRARY_FLOOR_HEIGHT;
             }
-
             else if (BuildingPolygon.inFleeming(currentLocation) && !isIndoorMapSet) {
                 groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
                         .image(BitmapDescriptorFactory.fromResource(R.drawable.f0g))
-                        .positionFromBounds(fleeming));// **默认边界**
+                        .position(BuildingPolygon.Fleeming_CENTER, 26f, 77f) // 设置宽高
+                        .bearing(-31)); // 设置旋转角度
                 isIndoorMapSet = true;
                 currentFloor = 0;
                 floorHeight = FLEEMING_FLOOR_HEIGHT;
             }
-            // Removing overlay if user no longer in area with indoor maps available
+            else if (BuildingPolygon.inHudson(currentLocation) && !isIndoorMapSet) {
+                groundOverlay = gMap.addGroundOverlay(new GroundOverlayOptions()
+                        .image(BitmapDescriptorFactory.fromResource(R.drawable.h0g))
+                        .position(BuildingPolygon.Hudson_CENTER, 35f, 18f) // 设置宽高
+                        .bearing(-31)); // 设置旋转角度
+                isIndoorMapSet = true;
+                currentFloor = 0;
+                floorHeight = FLEEMING_FLOOR_HEIGHT;
+            }
             else if (!BuildingPolygon.inLibrary(currentLocation) &&
-                    !BuildingPolygon.inNucleus(currentLocation)&& isIndoorMapSet&&
-                    !BuildingPolygon.inFleeming(currentLocation)&& isIndoorMapSet){
-                groundOverlay.remove();
+                    !BuildingPolygon.inNucleus(currentLocation) && isIndoorMapSet &&
+                    !BuildingPolygon.inFleeming(currentLocation) && isIndoorMapSet&&
+                    !BuildingPolygon.inHudson(currentLocation) && isIndoorMapSet) {
+                if (groundOverlay != null) {
+                    groundOverlay.remove();  // ✅ **确保不是 null 再删除**
+                    groundOverlay = null;
+                }
                 isIndoorMapSet = false;
-                currentFloor=0;
+                currentFloor = 0;
             }
 
         } catch (Exception ex) {
             Log.e("Error with overlay, Exception:", ex.toString());
         }
     }
+
 
     /**
      * Function used to set the indication of available floor maps for building using green Polylines
@@ -242,10 +265,23 @@ public class IndoorMapManager {
         gMap.addPolyline(new PolylineOptions()
                 .color(Color.GREEN) // 绿色边界
                 .width(5)           // 线条宽度
-                .addAll(points));
+                .addAll(fleemingPolygon));
+
+        List<LatLng> HudsonPolygon = Arrays.asList(
+                new LatLng(55.9223633, -3.1715301), // 西南 (Southwest)
+                new LatLng(55.9225434, -3.1710165), // 东南 (Southeast)
+                new LatLng(55.9226656, -3.1711522), // 东北 (Northeast)
+                new LatLng(55.9224837, -3.1716374), // 西北 (Northwest)
+                new LatLng(55.9223633, -3.1715301)  // **闭合边界**
+        );
+
+        // 在 Google Maps 上绘制绿色 Polyline
+        gMap.addPolyline(new PolylineOptions()
+                .color(Color.GREEN) // 绿色边界
+                .width(5)           // 线条宽度
+                .addAll(HudsonPolygon));
 
     }
-
 
 
 
