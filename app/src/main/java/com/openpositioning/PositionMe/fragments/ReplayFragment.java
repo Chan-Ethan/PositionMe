@@ -4,6 +4,10 @@ import com.openpositioning.PositionMe.Traj;
 import com.openpositioning.PositionMe.R;
 import com.openpositioning.PositionMe.IndoorMapManager;
 
+import android.app.AlertDialog;
+import android.app.DownloadManager;
+import android.content.DialogInterface;
+import android.content.Intent;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -53,30 +57,30 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private static final int SEEK_TIME = 10000; // 快进/快退步长（毫秒）
     private Handler refreshDataHandler;
     private Traj.Trajectory receTraj;
-    private int PdrNum;
-    private int GnssNum;
+    private int pdrNum;
+    private int gnssNum;
     private GoogleMap gMap;
     private Polyline polyline;
     public IndoorMapManager indoorMapManager;
     private Marker positionMarker;
+    private Marker gnssMarker;
     private SeekBar seekBar;
     // private List<LatLng> pdrCoordinates = new ArrayList<>();
     // private List<LatLng> gnssCoordinates = new ArrayList<>();
-    private int totalDuration = 0;
     private int MaxProgress;
     private TextView tvProgressTime; // 新增时间显示控件
 
     private float pdrX, pdrY;   // current progress PDR data
-    private float distance;
     private float orientation;
     private float previousPdrX = 0f;
     private float previousPdrY = 0f;
     private LatLng currentLocation; // current progress location
     private LatLng nextLocation;    // next progress location
+    private LatLng gnssLocation;
     private float gnssLati, gnssLong; // current progress GNSS data
     private float elevation;    // current progress elevation
     private int pdrIndex = 0;       // current progress PDR index
-    private int gnssIndex;      // current progress GNSS index
+    private int gnssIndex = 0;      // current progress GNSS index
     private boolean GnssOn = false;
 
     @Override
@@ -123,72 +127,89 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
         // 快退 10 秒
         rewindButton.setOnClickListener(v -> {
-            int newProgress = Math.max(progress - SEEK_TIME, 0);
-            seekBar.setProgress(newProgress);
-            updateUIandPosition(newProgress);
-            Toast.makeText(getContext(), "Rewind 10 seconds", Toast.LENGTH_SHORT).show();
+            pausePlayback();
+            progress = Math.max(progress - SEEK_TIME, 0);
+            seekBar.setProgress(progress);
+            redrawPolyline(progress);
+            startPlayback();
+            // Toast.makeText(getContext(), "Rewind 10 seconds", Toast.LENGTH_SHORT).show();
         });
 
         // 快进 10 秒
         forwardButton.setOnClickListener(v -> {
-            int newProgress = Math.min(progress + SEEK_TIME, seekBar.getMax());
-            seekBar.setProgress(newProgress);
-            updateUIandPosition(newProgress);
-            Toast.makeText(getContext(), "Forward 10 seconds", Toast.LENGTH_SHORT).show();
+            pausePlayback();
+            progress = Math.min(progress + SEEK_TIME, seekBar.getMax());
+            seekBar.setProgress(progress);
+            redrawPolyline(progress);
+            startPlayback();
+            // Toast.makeText(getContext(), "Forward 10 seconds", Toast.LENGTH_SHORT).show();
         });
 
         // 重启按钮
         restartButton.setOnClickListener(v -> {
+            pausePlayback();
             progress = 0;
-            seekBar.setProgress(0);
-            updateUIandPosition(0);
-            Toast.makeText(getContext(), "Restart button clicked", Toast.LENGTH_SHORT).show();
+            seekBar.setProgress(progress);
+            redrawPolyline(progress);
+            startPlayback();
+            // Toast.makeText(getContext(), "Restart button clicked", Toast.LENGTH_SHORT).show();
         });
 
         // 跳转到结尾
         goToEndButton.setOnClickListener(v -> {
             progress = seekBar.getMax();
             seekBar.setProgress(progress);
-            updateUIandPosition(progress);
-            Toast.makeText(getContext(), "Go to End button clicked", Toast.LENGTH_SHORT).show();
+            redrawPolyline(progress);
+            pausePlayback();
+            // Toast.makeText(getContext(), "Go to End button clicked", Toast.LENGTH_SHORT).show();
         });
 
         // 退出按钮
         exitButton.setOnClickListener(v -> {
             requireActivity().onBackPressed();
-            Toast.makeText(getContext(), "Exit button clicked", Toast.LENGTH_SHORT).show();
+            // Toast.makeText(getContext(), "Exit button clicked", Toast.LENGTH_SHORT).show();
         });
 
         // GNSS 开关
         gnssSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 GnssOn = true;
+                gnssLocation = new LatLng(gnssLati, gnssLong);
+                // Set GNSS marker
+                gnssMarker=gMap.addMarker(
+                        new MarkerOptions().title("GNSS position")
+                                .position(gnssLocation)
+                                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)));
                 Toast.makeText(getContext(), "GNSS Enabled", Toast.LENGTH_SHORT).show();
             } else {
                 GnssOn = false;
+                gnssMarker.remove();
                 Toast.makeText(getContext(), "GNSS Disabled", Toast.LENGTH_SHORT).show();
             }
         });
 
-        // SeekBar 监听
+        // SeekBar Listener
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
                 if (fromUser) {
+                    pausePlayback();
                     ReplayFragment.this.progress = progress;
-                    updateUIandPosition(progress);
-                    updateTimeDisplay(progress); // 更新时间显示
+                    seekBar.setProgress(progress);
+                    redrawPolyline(progress);
+                    updateTimeDisplay(progress);
+                    startPlayback();
                 }
             }
 
             @Override
             public void onStartTrackingTouch(SeekBar seekBar) {
-                Toast.makeText(getContext(), "SeekBar dragged", Toast.LENGTH_SHORT).show();
+                // Toast.makeText(getContext(), "SeekBar dragged", Toast.LENGTH_SHORT).show();
             }
 
             @Override
             public void onStopTrackingTouch(SeekBar seekBar) {
-                Toast.makeText(getContext(), "SeekBar released", Toast.LENGTH_SHORT).show();
+                // Toast.makeText(getContext(), "SeekBar released", Toast.LENGTH_SHORT).show();
             }
         });
 
@@ -199,9 +220,22 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
         readTrajectoryData();
+        if (pdrNum == 0) {
+            new AlertDialog.Builder(getContext())
+                    .setTitle("PDR data invalid")
+                    .setMessage("No PDR data to replay")
+                    .setNegativeButton(R.string.ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            requireActivity().onBackPressed();
+                        }
+                    })
+                    .setIcon(R.drawable.ic_baseline_download_24)
+                    .show();
+        }
     }
 
-    // 地图初始化
+    // Map initialization
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         Log.d("ReplayFragment", "onMapReady");
@@ -223,7 +257,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
                     .flat(true)
                     .icon(BitmapDescriptorFactory.fromBitmap(
                             UtilFunctions.getBitmapFromVector(getContext(),R.drawable.ic_baseline_navigation_24))));
-            PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f).add(start);
+            PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f).add(start).zIndex(1);
             polyline = gMap.addPolyline(options);
             indoorMapManager.setCurrentLocation(start);
             //Showing an indication of available indoor maps using PolyLines
@@ -234,7 +268,14 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             Toast.makeText(getContext(), "No PDR data to replay", Toast.LENGTH_LONG).show();
         }
     }
-    
+
+    @Override
+    public void onDestroyView() {
+        super.onDestroyView();
+
+        pausePlayback();
+    }
+
     private void readTrajectoryData() {
         try {
             // Get file path and log details
@@ -261,36 +302,35 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             receTraj = Traj.Trajectory.parseFrom(byteArray);
 
             // Extract trajectory details
-            PdrNum = receTraj.getPdrDataCount();
-            GnssNum = receTraj.getGnssDataCount();
-            Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + GnssNum);
-            Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + PdrNum);
+            pdrNum = receTraj.getPdrDataCount();
+            gnssNum = receTraj.getGnssDataCount();
+            Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + gnssNum);
+            Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + pdrNum);
             Log.d("ReplayFragment", "Start Timestamp: " + receTraj.getStartTimestamp());
 
             // if no PDR record, stop
-            if (PdrNum == 0) {
+            if (pdrNum == 0) {
                 Log.w("ReplayFragment", "No PDR data to replay");
                 return;
             }
 
             // Calculate total duration
-            if (receTraj.getPdrData(PdrNum-1).getRelativeTimestamp() > Integer.MAX_VALUE) {
+            if (receTraj.getPdrData(pdrNum-1).getRelativeTimestamp() > Integer.MAX_VALUE) {
                 MaxProgress = Integer.MAX_VALUE;
                 Log.w("ReplayFragment", "Trajectory too long, playback limited to 2^31-1 milliseconds");
             }
             else {
-                MaxProgress = (int)receTraj.getPdrData(PdrNum-1).getRelativeTimestamp();
+                MaxProgress = (int)receTraj.getPdrData(pdrNum-1).getRelativeTimestamp();
                 Log.d("ReplayFragment", "MaxProgress = "+MaxProgress);
             }
             seekBar.setMax(MaxProgress);
-            // totalDuration = MaxProgress - receTraj.getStartTimestamp();
 
             // initial current progress data
             pdrX = receTraj.getPdrData(0).getX();
             pdrY = receTraj.getPdrData(0).getY();
             Log.d("ReplayFragment", "pdrX = "+pdrX);
             Log.d("ReplayFragment", "pdrY = "+pdrY);
-            if (GnssNum > 0) {
+            if (gnssNum > 0) {
                 gnssLati = receTraj.getGnssData(0).getLatitude();
                 gnssLong = receTraj.getGnssData(0).getLongitude();
             }
@@ -324,13 +364,13 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
                 }
             }
         }, 100);
-        Toast.makeText(getContext(), "Playback started", Toast.LENGTH_SHORT).show();
+        // Toast.makeText(getContext(), "Playback started", Toast.LENGTH_SHORT).show();
     }
 
     // 暂停播放
     private void pausePlayback() {
         refreshDataHandler.removeCallbacksAndMessages(null);
-        Toast.makeText(getContext(), "Playback paused", Toast.LENGTH_SHORT).show();
+        // Toast.makeText(getContext(), "Playback paused", Toast.LENGTH_SHORT).show();
     }
 
     static List<LatLng> points = new ArrayList<>();
@@ -342,10 +382,6 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         pdrY = receTraj.getPdrData(pdrIndex).getY();
         Log.d("ReplayFragment", "X = " + pdrX);
         Log.d("ReplayFragment", "Y = " + pdrY);
-
-        // Calculate distance travelled
-        // distance += Math.sqrt(Math.pow(pdrX - previousPdrX, 2) + Math.pow(pdrY - previousPdrY, 2));
-        // distanceTravelled.setText(getString(R.string.meter, String.format("%.2f", distance)));
 
         // Net pdr movement
         float[] pdrMoved={pdrX-previousPdrX,pdrY-previousPdrY};
@@ -359,12 +395,11 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         }
         //Show GNSS marker and error if user enables it
         if (GnssOn){
-            // float[] location = sensorFusion.getSensorValueMap().get(SensorTypes.GNSSLATLONG);
-            // LatLng gnssLocation = new LatLng(location[0],location[1]);
-            // gnssError.setVisibility(View.VISIBLE);
-            // gnssError.setText(String.format(getString(R.string.gnss_error)+"%.2fm",
-            //         UtilFunctions.distanceBetweenPoints(currentLocation,gnssLocation)));
-            // gnssMarker.setPosition(gnssLocation);
+            gnssIndex = findClosestGnssIndex(progress, gnssIndex);
+            gnssLati = receTraj.getGnssData(gnssIndex).getLatitude();
+            gnssLong = receTraj.getGnssData(gnssIndex).getLongitude();
+            gnssLocation = new LatLng(gnssLati, gnssLong);
+            gnssMarker.setPosition(gnssLocation);
         }
         //  Updates current location of user to show the indoor floor map (if applicable)
         indoorMapManager.setCurrentLocation(currentLocation);
@@ -412,14 +447,27 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     // find closest PDR index
     private int findClosestPdrIndex(int timestamp, int pdrIndex) {
         // make sure index is within bounds
-        int index = Math.min(Math.max(pdrIndex, 0), PdrNum - 1);
+        int index = Math.min(Math.max(pdrIndex, 0), pdrNum - 1);
 
-        while ((index < PdrNum - 1) &&
+        while ((index < pdrNum - 1) &&
                 (receTraj.getPdrData(index + 1).getRelativeTimestamp() <= timestamp)) {
             index++;
         }
 
         Log.d("ReplayFragment", "Closest PDR index: " + index);
+        return index;
+    }
+
+    private int findClosestGnssIndex(int timestamp, int gnssIndex) {
+        // make sure index is within bounds
+        int index = Math.min(Math.max(gnssIndex, 0), gnssNum - 1);
+
+        while ((index < gnssNum - 1) &&
+                (receTraj.getGnssData(index + 1).getRelativeTimestamp() <= timestamp)) {
+            index++;
+        }
+
+        Log.d("ReplayFragment", "Closest Gnss index: " + index);
         return index;
     }
 
@@ -438,11 +486,12 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             polyline.setPoints(pointsMoved);
 
             // calculate orientation
-            orientation =
+            orientation = (float) Math.toDegrees(Math.atan2(pdrMoved[1], pdrMoved[0]));
 
             // Change current location to new location and zoom there
             positionMarker.setPosition(nextLocation);
-            positionMarker.setRotation();
+            // positionMarker.setRotation(orientation);
+            positionMarker.setRotation((float) Math.toDegrees(orientation));
             gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(nextLocation, (float) 19f));
 
             currentLocation=nextLocation;
@@ -451,6 +500,29 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             //Initialise the starting location
             currentLocation=new LatLng(gnssLati,gnssLong);
             nextLocation=currentLocation;
+        }
+    }
+
+    private void redrawPolyline(int progress) {
+        // reset index
+        pdrIndex = 0;
+        gnssIndex = 0;
+
+        // get GNSS start point
+        LatLng start = new LatLng(receTraj.getGnssData(0).getLatitude(),
+                receTraj.getGnssData(0).getLongitude());
+
+        // clear previous polyline
+        if (polyline != null) {
+            polyline.remove();
+        }
+
+        // create new PolylineOptions
+        PolylineOptions options = new PolylineOptions().color(Color.RED).width(8f).zIndex(1).add(start);
+        polyline = gMap.addPolyline(options);
+
+        for (int i = 0; i <= progress; i += 200) {
+            updateUIandPosition(i);
         }
     }
 }
