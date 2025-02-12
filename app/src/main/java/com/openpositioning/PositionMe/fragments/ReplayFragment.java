@@ -3,6 +3,7 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.openpositioning.PositionMe.Traj;
 import com.openpositioning.PositionMe.R;
 import com.openpositioning.PositionMe.IndoorMapManager;
+import com.openpositioning.PositionMe.PdrProcessing;
 
 import android.app.AlertDialog;
 import android.app.DownloadManager;
@@ -59,6 +60,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private Traj.Trajectory receTraj;
     private int pdrNum;
     private int gnssNum;
+    private int PressureNum;
     private GoogleMap gMap;
     private Polyline polyline;
     public IndoorMapManager indoorMapManager;
@@ -81,7 +83,9 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     private float elevation;    // current progress elevation
     private int pdrIndex = 0;       // current progress PDR index
     private int gnssIndex = 0;      // current progress GNSS index
+    private int pressureIndex = 0;      // current progress pressure index
     private boolean GnssOn = false;
+    private PdrProcessing pdrProcessing;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -304,7 +308,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Extract trajectory details
             pdrNum = receTraj.getPdrDataCount();
             gnssNum = receTraj.getGnssDataCount();
-            int PressureNum = receTraj.getPressureDataCount();
+            PressureNum = receTraj.getPressureDataCount();
             Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + gnssNum);
             Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + pdrNum);
             Log.d("ReplayFragment", "Trajectory parsed successfully. Pressure points: " + PressureNum);
@@ -343,6 +347,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             }
 
             // Calculate elevation
+            elevation = 0;
 
 
         } catch (IOException | JsonSyntaxException e) {
@@ -408,16 +413,19 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         // float elevationVal = sensorFusion.getElevation();
         // Display buttons to allow user to change floors if indoor map is visible
         if(indoorMapManager.getIsIndoorMapSet()){
-            // setFloorButtonVisibility(View.VISIBLE);
-            // Auto-floor logic
-            // if(autoFloor.isChecked()){
-            //     indoorMapManager.setCurrentFloor((int)(elevationVal/indoorMapManager.getFloorHeight())
-            //             ,true);
-            // }
-        }else{
-            // Hide the buttons and switch used to change floor if indoor map is not visible
-            // setFloorButtonVisibility(View.GONE);
+            if (PressureNum>0) {
+                findClosestPressureIndex(progress, pressureIndex);
+                elevation = pdrProcessing.updateElevation(receTraj.getPressureData(pressureIndex)
+                        .getPressure());
+            }
+            else {
+                elevation = 0;
+            }
+            Log.d("ReplayFragment", "Elevation = "+elevation);
+            indoorMapManager.setCurrentFloor((int)(elevation/indoorMapManager.getFloorHeight())
+                         ,true);
         }
+
         // Store previous PDR values for next call
         previousPdrX = pdrX;
         previousPdrY = pdrY;
@@ -466,6 +474,23 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
         while ((index < gnssNum - 1) &&
                 (receTraj.getGnssData(index + 1).getRelativeTimestamp() <= timestamp)) {
+            index++;
+        }
+
+        // Log.d("ReplayFragment", "Closest Gnss index: " + index);
+        return index;
+    }
+
+    private int findClosestPressureIndex(int timestamp, int pressureIndex) {
+        if (PressureNum == 0) {
+            return 0; // No pressure data
+        }
+
+        // make sure index is within bounds
+        int index = Math.min(Math.max(pressureIndex, 0), PressureNum - 1);
+
+        while ((index < PressureNum - 1) &&
+                (receTraj.getPressureData(index + 1).getRelativeTimestamp() <= timestamp)) {
             index++;
         }
 
