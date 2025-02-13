@@ -7,6 +7,7 @@ import com.openpositioning.PositionMe.PdrProcessing;
 
 import android.app.AlertDialog;
 import android.app.DownloadManager;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.graphics.Color;
@@ -55,7 +56,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
 
     private boolean isPlaying = false;
     private int progress = 0;
-    private static final int SEEK_TIME = 10000; // 快进/快退步长（毫秒）
+    private static final int SEEK_TIME = 10000; // Fast forward/rewind step (milliseconds)
     private Handler refreshDataHandler;
     private Traj.Trajectory receTraj;
     private int pdrNum;
@@ -70,7 +71,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     // private List<LatLng> pdrCoordinates = new ArrayList<>();
     // private List<LatLng> gnssCoordinates = new ArrayList<>();
     private int MaxProgress;
-    private TextView tvProgressTime; // 新增时间显示控件
+    private TextView tvProgressTime; // time display
 
     private float pdrX, pdrY;   // current progress PDR data
     private float orientation;
@@ -90,23 +91,26 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Context context = getActivity();
+
         refreshDataHandler = new Handler();
+        pdrProcessing = new PdrProcessing(context);
     }
 
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_replay, container, false);
-        requireActivity().setTitle("Replay"); // 设置标题
+        requireActivity().setTitle("Replay");
 
-        // 初始化地图
+        // Maps initialization
         SupportMapFragment mapFragment = (SupportMapFragment) getChildFragmentManager()
                 .findFragmentById(R.id.replayMap);
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
         }
 
-        // 初始化控件
+        // UI elements initialization
         ImageButton playPauseButton = view.findViewById(R.id.btn_play_pause);
         ImageButton rewindButton = view.findViewById(R.id.btn_rewind);
         ImageButton forwardButton = view.findViewById(R.id.btn_forward);
@@ -115,9 +119,9 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         Button exitButton = view.findViewById(R.id.btn_exit);
         seekBar = view.findViewById(R.id.seek_bar);
         Switch gnssSwitch = view.findViewById(R.id.gnssSwitch);
-        tvProgressTime = view.findViewById(R.id.tv_progress_time); // 绑定时间显示控件
+        tvProgressTime = view.findViewById(R.id.tv_progress_time); // bound to time display
 
-        // 播放/暂停按钮
+        // play/pause button
         playPauseButton.setOnClickListener(v -> {
             isPlaying = !isPlaying;
             if (isPlaying) {
@@ -129,7 +133,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             }
         });
 
-        // 快退 10 秒
+        // back 10 seconds
         rewindButton.setOnClickListener(v -> {
             pausePlayback();
             progress = Math.max(progress - SEEK_TIME, 0);
@@ -139,7 +143,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Toast.makeText(getContext(), "Rewind 10 seconds", Toast.LENGTH_SHORT).show();
         });
 
-        // 快进 10 秒
+        // forward 10 seconds
         forwardButton.setOnClickListener(v -> {
             pausePlayback();
             progress = Math.min(progress + SEEK_TIME, seekBar.getMax());
@@ -149,7 +153,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Toast.makeText(getContext(), "Forward 10 seconds", Toast.LENGTH_SHORT).show();
         });
 
-        // 重启按钮
+        // restart button
         restartButton.setOnClickListener(v -> {
             pausePlayback();
             progress = 0;
@@ -159,7 +163,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Toast.makeText(getContext(), "Restart button clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // 跳转到结尾
+        // go to end button
         goToEndButton.setOnClickListener(v -> {
             progress = seekBar.getMax();
             seekBar.setProgress(progress);
@@ -168,13 +172,13 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // Toast.makeText(getContext(), "Go to End button clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // 退出按钮
+        // exit button
         exitButton.setOnClickListener(v -> {
             requireActivity().onBackPressed();
             // Toast.makeText(getContext(), "Exit button clicked", Toast.LENGTH_SHORT).show();
         });
 
-        // GNSS 开关
+        // GNSS switch
         gnssSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             if (isChecked) {
                 GnssOn = true;
@@ -216,7 +220,6 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
                 // Toast.makeText(getContext(), "SeekBar released", Toast.LENGTH_SHORT).show();
             }
         });
-
         return view;
     }
 
@@ -251,16 +254,11 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         gMap.getUiSettings().setTiltGesturesEnabled(true);
         gMap.getUiSettings().setRotateGesturesEnabled(true);
         gMap.getUiSettings().setScrollGesturesEnabled(true);
-<<<<<<< HEAD
-        gMap.getUiSettings().setZoomControlsEnabled(true);
-=======
         gMap.getUiSettings().setZoomControlsEnabled(false);
->>>>>>> origin/csl_merge_machao
 
         if ((pdrX != 0) || (pdrY != 0)) {
             LatLng start = new LatLng(gnssLati, gnssLong);
             gMap.moveCamera(CameraUpdateFactory.newLatLngZoom(start, 19f));
-            // positionMarker = gMap.addMarker(new MarkerOptions().position(initialPos).title("Position"));
             positionMarker=gMap.addMarker(new MarkerOptions().position(start).title("Current Position")
                     .flat(true)
                     .icon(BitmapDescriptorFactory.fromBitmap(
@@ -280,24 +278,18 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
     @Override
     public void onDestroyView() {
         super.onDestroyView();
-
+        // Stop playback when fragment is destroyed
         pausePlayback();
     }
 
     private void readTrajectoryData() {
         try {
-            // Get file path and log details
+            // Get file path and read the file
             File file = new File(requireContext().getFilesDir(), "received_trajectory.traj");
-            // Log.d("ReplayFragment", "File path: " + file.getAbsolutePath());
-            // Log.d("ReplayFragment", "File exists: " + file.exists());
-            // byte[] Bytes = readFileToByteArray(file);
             FileInputStream fileStream = new FileInputStream(file);
-            
-            // receTraj = Traj.Trajectory.parseFrom(Bytes);
-
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
 
-            // Read the zipped data and write it to the byte array output stream
+            // Read the file into a byte array
             byte[] buffer = new byte[1024];
             int bytesRead;
             while ((bytesRead = fileStream.read(buffer)) != -1) {
@@ -313,18 +305,20 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             pdrNum = receTraj.getPdrDataCount();
             gnssNum = receTraj.getGnssDataCount();
             PressureNum = receTraj.getPressureDataCount();
+
+            // Log debug information
             Log.d("ReplayFragment", "Trajectory parsed successfully. GNSS points: " + gnssNum);
             Log.d("ReplayFragment", "Trajectory parsed successfully. PDR points: " + pdrNum);
             Log.d("ReplayFragment", "Trajectory parsed successfully. Pressure points: " + PressureNum);
             Log.d("ReplayFragment", "Start Timestamp: " + receTraj.getStartTimestamp());
 
-            // if no PDR record, stop
+            // if no PDR record, return
             if (pdrNum == 0) {
                 Log.w("ReplayFragment", "No PDR data to replay");
                 return;
             }
 
-            // Calculate total duration
+            // Get max progress
             if (receTraj.getPdrData(pdrNum-1).getRelativeTimestamp() > Integer.MAX_VALUE) {
                 MaxProgress = Integer.MAX_VALUE;
                 Log.w("ReplayFragment", "Trajectory too long, playback limited to 2^31-1 milliseconds");
@@ -338,8 +332,6 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             // initial current progress data
             pdrX = receTraj.getPdrData(0).getX();
             pdrY = receTraj.getPdrData(0).getY();
-            // Log.d("ReplayFragment", "pdrX = "+pdrX);
-            // Log.d("ReplayFragment", "pdrY = "+pdrY);
             if (gnssNum > 0) {
                 gnssLati = receTraj.getGnssData(0).getLatitude();
                 gnssLong = receTraj.getGnssData(0).getLongitude();
@@ -349,10 +341,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
                 gnssLong = 0;
                 Log.e("ReplayFragment", "No GNSS data!");
             }
-
-            // Calculate elevation
             elevation = 0;
-
 
         } catch (IOException | JsonSyntaxException e) {
             Log.e("ReplayFragment", "Failed to read trajectory", e);
@@ -360,7 +349,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         }
     }
 
-    // 开始播放
+    // start playback
     private void startPlayback() {
         refreshDataHandler.postDelayed(new Runnable() {
             @Override
@@ -370,7 +359,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
                     Log.d("ReplayFragment", "current Progress = "+progress);
                     seekBar.setProgress(progress);
                     updateUIandPosition(progress);
-                    updateTimeDisplay(progress); // 新增时间更新
+                    updateTimeDisplay(progress);
                     refreshDataHandler.postDelayed(this, 200);
                 }
             }
@@ -378,21 +367,20 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         // Toast.makeText(getContext(), "Playback started", Toast.LENGTH_SHORT).show();
     }
 
-    // 暂停播放
+    // pause playback
     private void pausePlayback() {
         refreshDataHandler.removeCallbacksAndMessages(null);
         // Toast.makeText(getContext(), "Playback paused", Toast.LENGTH_SHORT).show();
     }
 
     static List<LatLng> points = new ArrayList<>();
-    // 更新地图和UI
+
+    // update UI and position
     private void updateUIandPosition(int progress) {
         // Get new position
         pdrIndex = findClosestPdrIndex(progress, pdrIndex);
         pdrX = receTraj.getPdrData(pdrIndex).getX();
         pdrY = receTraj.getPdrData(pdrIndex).getY();
-        // Log.d("ReplayFragment", "X = " + pdrX);
-        // Log.d("ReplayFragment", "Y = " + pdrY);
 
         // Net pdr movement
         float[] pdrMoved={pdrX-previousPdrX,pdrY-previousPdrY};
@@ -412,13 +400,18 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             gnssLocation = new LatLng(gnssLati, gnssLong);
             gnssMarker.setPosition(gnssLocation);
         }
+
         //  Updates current location of user to show the indoor floor map (if applicable)
         indoorMapManager.setCurrentLocation(currentLocation);
-        // float elevationVal = sensorFusion.getElevation();
-        // Display buttons to allow user to change floors if indoor map is visible
+
+        // calculate elevation and display current floor
         if(indoorMapManager.getIsIndoorMapSet()){
             if (PressureNum>0) {
                 findClosestPressureIndex(progress, pressureIndex);
+                Log.d("ReplayFragment", "Pressure = " + receTraj.
+                        getPressureData(pressureIndex).getPressure());
+                Log.d("ReplayFragment", "Light = " + receTraj.
+                        getLightData(pressureIndex).getLight());
                 elevation = pdrProcessing.updateElevation(receTraj.getPressureData(pressureIndex)
                         .getPressure());
             }
@@ -433,24 +426,14 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         // Store previous PDR values for next call
         previousPdrX = pdrX;
         previousPdrY = pdrY;
-        // Display elevation
-        // elevation.setText(getString(R.string.elevation, String.format("%.1f", elevationVal)));
-        //Rotate compass Marker according to direction of movement
-        // if (orientationMarker!=null) {
-        //     orientationMarker.setRotation((float) Math.toDegrees(sensorFusion.passOrientation()));
-        // }
 
-
-        // points.add(currentPos);
-        // polyline.setPoints(points);
-//
         if (positionMarker != null) {
             positionMarker.setPosition(currentLocation);
             gMap.moveCamera(CameraUpdateFactory.newLatLng(currentLocation));
         }
     }
 
-    // 时间显示格式化
+    // time display formatting
     private void updateTimeDisplay(int progress) {
         int seconds = (progress / 1000) % 60;
         int minutes = (progress / 1000) / 60;
@@ -498,7 +481,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
             index++;
         }
 
-        // Log.d("ReplayFragment", "Closest Gnss index: " + index);
+        Log.d("ReplayFragment", "Closest Gnss index: " + index);
         return index;
     }
 

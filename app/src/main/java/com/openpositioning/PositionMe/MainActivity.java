@@ -137,12 +137,12 @@ public class MainActivity extends AppCompatActivity implements Observer {
     private void checkPermissionsPhase() {
         pendingPermissions.clear();
 
-        // 先检查强制权限
+        // check mandatory permissions
         for (String perm : MANDATORY_PERMISSIONS) {
             if (!hasPermission(perm)) pendingPermissions.add(perm);
         }
 
-        // 再检查可选权限
+        // check optional permissions
         for (String perm : OPTIONAL_PERMISSIONS) {
             if (!hasPermission(perm)) pendingPermissions.add(perm);
         }
@@ -426,7 +426,7 @@ public class MainActivity extends AppCompatActivity implements Observer {
             if (isMandatory) {
                 handleMandatoryDenied(permissions[0]);
             } else {
-                // 可选权限被拒绝可继续流程
+                // Optional permission denied - just move on
                 requestNextPermission();
             }
         }

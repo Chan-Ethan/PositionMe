@@ -209,11 +209,7 @@
             android:layout_height="48dp"
             android:layout_marginStart="8dp"
             android:layout_marginTop="8dp"
-<<<<<<< HEAD
-            android:background="@drawable/common_google_signin_btn_text_dark_normal"
-=======
             android:background="@drawable/button_background_light"
->>>>>>> origin/csl_merge_machao
             android:buttonTint="@android:color/holo_green_dark"
             android:text="@string/gnssSwitch"
             android:textColor="@color/black"

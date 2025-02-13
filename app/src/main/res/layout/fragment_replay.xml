@@ -29,11 +29,7 @@
                 android:id="@+id/btn_rewind"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
-<<<<<<< HEAD
-                android:background="@android:color/transparent"
-=======
                 android:background="@drawable/button_background_light_trans"
->>>>>>> origin/csl_merge_machao
                 android:contentDescription="Rewind"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_baseline_fast_rewind_24"
@@ -47,11 +43,7 @@
                 android:id="@+id/btn_play_pause"
                 android:layout_width="101dp"
                 android:layout_height="127dp"
-<<<<<<< HEAD
-                android:background="@android:color/transparent"
-=======
                 android:background="@drawable/button_background_light_trans"
->>>>>>> origin/csl_merge_machao
                 android:contentDescription="Play/Pause Button"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_baseline_play_circle_filled_24_b"
@@ -65,11 +57,7 @@
                 android:id="@+id/btn_forward"
                 android:layout_width="60dp"
                 android:layout_height="60dp"
-<<<<<<< HEAD
-                android:background="@android:color/transparent"
-=======
                 android:background="@drawable/button_background_light_trans"
->>>>>>> origin/csl_merge_machao
                 android:contentDescription="Forward"
                 android:scaleType="fitCenter"
                 android:src="@drawable/ic_baseline_fast_forward_24"
@@ -79,14 +67,6 @@
                 app:layout_constraintTop_toTopOf="@id/guideline2" />
 
             <!-- GNSS 开关 -->
-<<<<<<< HEAD
-            <Switch
-                android:id="@+id/gnssSwitch"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:layout_marginStart="8dp"
-                android:background="@drawable/rounded_corner_pastel_blue"
-=======
             <!-- 播放进度时间显示 -->
             <Switch
                 android:id="@+id/gnssSwitch"
@@ -94,29 +74,20 @@
                 android:layout_height="40dp"
                 android:layout_marginStart="5dp"
                 android:background="@drawable/button_background_light"
->>>>>>> origin/csl_merge_machao
                 android:buttonTint="@android:color/holo_green_dark"
                 android:text="@string/gnssSwitch"
                 android:textColor="@color/black"
                 app:layout_constraintBottom_toTopOf="@id/guideline3"
                 app:layout_constraintStart_toStartOf="parent"
-<<<<<<< HEAD
-                app:layout_constraintTop_toTopOf="@id/guideline3" />
-            <!-- 播放进度时间显示 -->
-=======
                 app:layout_constraintTop_toTopOf="@id/guideline3"
                 app:layout_constraintVertical_bias="0.516" />
 
->>>>>>> origin/csl_merge_machao
             <TextView
                 android:id="@+id/tv_progress_time"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="8dp"
-<<<<<<< HEAD
-=======
                 android:background="@color/lightLogoBlue"
->>>>>>> origin/csl_merge_machao
                 android:text="0:00"
                 android:textColor="@android:color/black"
                 android:textSize="16sp"
@@ -129,11 +100,7 @@
                 android:id="@+id/button_container"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-<<<<<<< HEAD
-                android:layout_marginBottom="11dp"
-=======
                 android:layout_marginBottom="15dp"
->>>>>>> origin/csl_merge_machao
                 android:gravity="center"
                 android:orientation="horizontal"
                 app:layout_constraintBottom_toTopOf="@id/seek_bar"
@@ -146,13 +113,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-<<<<<<< HEAD
-                    android:background="@drawable/button_background"
-                    android:backgroundTint="#8CB4FF"
-=======
                     android:background="@drawable/button_background_trans_anti"
 
->>>>>>> origin/csl_merge_machao
                     android:text="Restart" />
 
                 <!-- Go to End 按钮 -->
@@ -161,13 +123,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-<<<<<<< HEAD
-                    android:background="@drawable/button_background"
-                    android:backgroundTint="#8CB4FF"
-=======
                     android:background="@drawable/button_background_trans_anti"
 
->>>>>>> origin/csl_merge_machao
                     android:text="Go to End" />
 
                 <!-- Exit 按钮 -->
@@ -176,13 +133,8 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-<<<<<<< HEAD
-                    android:background="@drawable/button_background"
-                    android:backgroundTint="#8CB4FF"
-=======
                     android:background="@drawable/button_background_trans_anti"
 
->>>>>>> origin/csl_merge_machao
                     android:text="Exit" />
             </LinearLayout>
 
@@ -207,22 +159,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-<<<<<<< HEAD
-                app:layout_constraintGuide_percent="0.78" />
-=======
                 app:layout_constraintGuide_percent="0.73" />
->>>>>>> origin/csl_merge_machao
 
             <androidx.constraintlayout.widget.Guideline
                 android:id="@+id/guideline3"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
-<<<<<<< HEAD
-                app:layout_constraintGuide_percent="0.14363885" />
-=======
                 app:layout_constraintGuide_begin="51dp" />
->>>>>>> origin/csl_merge_machao
 
         </androidx.constraintlayout.widget.ConstraintLayout>
     </FrameLayout>

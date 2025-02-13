@@ -32,11 +32,7 @@
                 android:gravity="center"
                 android:text="9999"
                 android:textColor="@color/lightLogoBlue"
-<<<<<<< HEAD
-                android:textSize="30dp"
-=======
                 android:textSize="20sp"
->>>>>>> origin/csl_merge_machao
                 android:textStyle="bold"
                 android:maxLines="1"
                 app:autoSizeTextType="none"
