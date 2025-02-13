@@ -11,7 +11,11 @@
     <!-- 默认状态（原色） -->
     <item>
         <shape>
+<<<<<<< HEAD
             <solid android:color="@android:color/white" /> <!-- 原始颜色 -->
+=======
+            <solid android:color="#80FFFFFF" /> <!-- 原始颜色 -->
+>>>>>>> origin/csl_merge_machao
             <corners android:radius="8dp" />
         </shape>
     </item>
