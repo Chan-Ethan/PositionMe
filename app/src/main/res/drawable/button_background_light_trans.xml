@@ -11,7 +11,7 @@
     <!-- 默认状态（原色） -->
     <item>
         <shape>
-            <solid android:color="@android:color/white" /> <!-- 原始颜色 -->
+            <solid android:color="#80FFFFFF" /> <!-- 原始颜色 -->
             <corners android:radius="8dp" />
         </shape>
     </item>
