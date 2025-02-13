@@ -251,7 +251,7 @@ public class ReplayFragment extends Fragment implements OnMapReadyCallback {
         gMap.getUiSettings().setTiltGesturesEnabled(true);
         gMap.getUiSettings().setRotateGesturesEnabled(true);
         gMap.getUiSettings().setScrollGesturesEnabled(true);
-        gMap.getUiSettings().setZoomControlsEnabled(true);
+        gMap.getUiSettings().setZoomControlsEnabled(false);
 
         if ((pdrX != 0) || (pdrY != 0)) {
             LatLng start = new LatLng(gnssLati, gnssLong);
